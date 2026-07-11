@@ -54,8 +54,8 @@ See [docs/decisions.md](docs/decisions.md) for full architecture rationale.
 
 ## What I'd Do With More Time
 
-- **Pagination/clustering** — at 10K+ listings, paginate API responses and use map clustering to keep the UI responsive
-- **Caching** — add Redis or HTTP cache headers for `/areas/stats` (changes infrequently)
+- **Clustering/vector tiles** — at scale, use map clustering (Supercluster) for visual grouping; for larger datasets, switch to vector tiles (PostGIS ST_AsMVT) for efficient rendering
+- **Caching** — HTTP cache headers for browser-level caching, Redis for shared server-side cache. `/areas/stats` is the prime candidate — same result for every user, changes only when listings are added
 - **CI/CD** — GitHub Actions pipeline: lint, test, build, deploy
 - **Auth** — API key or JWT for production use
 - **Monitoring** — structured logging, request tracing, error alerting

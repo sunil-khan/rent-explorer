@@ -33,7 +33,7 @@
 | Chose | Over | Why |
 |-------|------|-----|
 | Query-time spatial join | Pre-computed area_code | Correctness over speed (see below) |
-| All listings in one response | Pagination | 850 rows is small; pagination adds client complexity |
+| All listings in one response | Cursor pagination | 850 rows is small; bbox viewport filter is the natural map paginator |
 | Inline styles | CSS framework | Minimal UI scope; no build config overhead |
 | Client-side median | Server-computed summary | Avoids extra endpoint; listings already in memory |
 | Client-side value signal | Server-computed | Same data already available, no extra round-trip |
@@ -43,8 +43,8 @@
 **Current state:** ~850 listings, 12 areas. All queries are sub-millisecond.
 
 **At 100K listings:**
-- Add pagination to `/listings` (cursor-based, not offset)
-- Add map clustering (MapLibre supports Supercluster)
+- Map clustering (Supercluster) for visual grouping — zoom out shows cluster circles, zoom in shows individual dots
+- Bbox viewport filter (already implemented) serves as natural spatial pagination
 - `/areas/stats` stays fast with GiST indexes
 
 **At 1M+ listings:**
