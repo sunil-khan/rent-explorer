@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Env
+.env
+*.local
+
+# Docker
+postgres_data/
+
+# Interview prep (personal, not for submission)
+docs/interview-prep.md
+
+# Assignment prompt (not for submission)
+CHAOS_Senior_Fullstack_Take_Home.md
+
+# Internal tooling artifacts
+.superpowers/
+docs/superpowers/
+.claude/
