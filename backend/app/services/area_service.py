@@ -1,16 +1,9 @@
-from typing import Any, TypedDict
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import json
 
 
-class AreaStatsResult(TypedDict):
-    type: str
-    features: list[dict[str, Any]]
-
-
-def get_area_stats(db: Session) -> AreaStatsResult:
+def get_area_stats(db: Session) -> dict:
     query = text("""
         SELECT
             a.area_code,

@@ -1,33 +1,10 @@
-from datetime import date
-from typing import Optional, TypedDict
+from typing import Optional
 
-from sqlalchemy import func, cast
+from sqlalchemy import func, cast, case, Numeric
 from sqlalchemy.orm import Session
 from geoalchemy2 import Geography
 
 from app.models import Listing
-
-
-class ListingResult(TypedDict):
-    listing_id: str
-    latitude: float
-    longitude: float
-    rooms: Optional[int]
-    size_m2: Optional[float]
-    rent_eur: Optional[int]
-    property_type: str
-    listed_date: date
-    eur_per_m2: Optional[float]
-
-
-class ListingNearResult(ListingResult):
-    distance_m: float
-
-
-def _compute_eur_per_m2(rent_eur, size_m2) -> float | None:
-    if rent_eur is not None and size_m2 is not None and float(size_m2) > 0:
-        return round(float(rent_eur) / float(size_m2), 2)
-    return None
 
 
 def query_listings(
@@ -40,7 +17,16 @@ def query_listings(
     rent_max: Optional[int] = None,
     rooms: Optional[int] = None,
     property_type: Optional[str] = None,
-) -> list[ListingResult]:
+) -> list[dict]:
+    # Compute eur_per_m2 in SQL — consistent with ST_X/ST_Y pattern
+    eur_per_m2 = case(
+        (
+            (Listing.rent_eur.isnot(None)) & (Listing.size_m2.isnot(None)) & (Listing.size_m2 > 0),
+            func.round(cast(Listing.rent_eur, Numeric) / Listing.size_m2, 2),
+        ),
+        else_=None,
+    ).label("eur_per_m2")
+
     query = db.query(
         Listing.listing_id,
         func.ST_Y(Listing.geom).label("latitude"),
@@ -50,6 +36,7 @@ def query_listings(
         Listing.rent_eur,
         Listing.property_type,
         Listing.listed_date,
+        eur_per_m2,
     )
 
     if all(v is not None for v in [min_lng, min_lat, max_lng, max_lat]):
@@ -65,11 +52,8 @@ def query_listings(
     if property_type is not None:
         query = query.filter(Listing.property_type == property_type)
 
-    results = []
-    for row in query.all():
-        eur_per_m2 = _compute_eur_per_m2(row.rent_eur, row.size_m2)
-
-        results.append({
+    return [
+        {
             "listing_id": row.listing_id,
             "latitude": row.latitude,
             "longitude": row.longitude,
@@ -78,10 +62,10 @@ def query_listings(
             "rent_eur": row.rent_eur,
             "property_type": row.property_type,
             "listed_date": row.listed_date,
-            "eur_per_m2": eur_per_m2,
-        })
-
-    return results
+            "eur_per_m2": float(row.eur_per_m2) if row.eur_per_m2 is not None else None,
+        }
+        for row in query.all()
+    ]
 
 
 def query_listings_near(
@@ -93,10 +77,19 @@ def query_listings_near(
     rent_max: Optional[int] = None,
     rooms: Optional[int] = None,
     property_type: Optional[str] = None,
-) -> list[ListingNearResult]:
+) -> list[dict]:
     point = func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
     point_geog = cast(point, Geography)
     listing_geog = cast(Listing.geom, Geography)
+
+    # Compute eur_per_m2 in SQL — consistent with ST_X/ST_Y pattern
+    eur_per_m2 = case(
+        (
+            (Listing.rent_eur.isnot(None)) & (Listing.size_m2.isnot(None)) & (Listing.size_m2 > 0),
+            func.round(cast(Listing.rent_eur, Numeric) / Listing.size_m2, 2),
+        ),
+        else_=None,
+    ).label("eur_per_m2")
 
     query = db.query(
         Listing.listing_id,
@@ -107,6 +100,7 @@ def query_listings_near(
         Listing.rent_eur,
         Listing.property_type,
         Listing.listed_date,
+        eur_per_m2,
         func.ST_Distance(listing_geog, point_geog).label("distance_m"),
     ).filter(
         func.ST_DWithin(listing_geog, point_geog, radius_m)
@@ -123,11 +117,8 @@ def query_listings_near(
 
     query = query.order_by("distance_m")
 
-    results = []
-    for row in query.all():
-        eur_per_m2 = _compute_eur_per_m2(row.rent_eur, row.size_m2)
-
-        results.append({
+    return [
+        {
             "listing_id": row.listing_id,
             "latitude": row.latitude,
             "longitude": row.longitude,
@@ -136,8 +127,8 @@ def query_listings_near(
             "rent_eur": row.rent_eur,
             "property_type": row.property_type,
             "listed_date": row.listed_date,
-            "eur_per_m2": eur_per_m2,
+            "eur_per_m2": float(row.eur_per_m2) if row.eur_per_m2 is not None else None,
             "distance_m": round(row.distance_m, 1),
-        })
-
-    return results
+        }
+        for row in query.all()
+    ]
